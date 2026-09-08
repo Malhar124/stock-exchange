@@ -203,12 +203,32 @@ The targets can be run after building:
 ./build/tools/liquidity_bot
 ```
 
-The `exchange` executable runs a deterministic AAPL scenario that prints
-accepted, rested, trade, partial-fill, filled, and canceled events. The two tool
-executables currently print:
+The `exchange` executable runs a deterministic AAPL scenario:
+
+1. Adds sell order `1001` at `1'010'000` for quantity `100` and rests it.
+2. Adds non-crossing buy order `2001` at `1'000'000` for quantity `40`.
+3. Adds buy order `2002` at `1'010'000` for quantity `60`, matching order `1001`.
+4. Cancels the remaining quantity of order `2001`.
+
+Prices are fixed-point values, so `1'010'000` represents `101.0000` with
+`PRICE_SCALE = 10'000`. The crossing request emits a trade at the resting ask
+price, a partial fill for order `1001`, and a complete fill for order `2002`.
+
+
+
+The exchange demonstration produces output in this shape:
 
 ```text
-Hello World
+1. Add resting ask (2 events)
+	ACCEPTED order=1001 side=SELL price=1010000 qty=100 type=LIMIT
+	RESTED order=1001 side=SELL price=1010000 qty=100
+3. Add crossing bid (4 events)
+	ACCEPTED order=2002 side=BUY price=1010000 qty=60 type=LIMIT
+	TRADE match=1 buy_order=2002 sell_order=1001 price=1010000 qty=60
+	PARTIALLY_FILLED order=1001 filled=60 remaining=40 price=1010000
+	FILLED order=2002 qty=60 price=1010000
+4. Cancel remaining bid (1 events)
+	CANCELED order=2001 qty=40
 ```
 
 The reusable matching implementation is exercised by including its headers in a
@@ -250,7 +270,7 @@ that include directory and the required compile features.
 ├── CMakeLists.txt
 ├── README.MD
 ├── src/
-│   ├── exchange_main.cpp       # Current exchange executable placeholder
+│   ├── exchange_main.cpp       # Deterministic matching-engine demonstration
 │   ├── core/
 │   │   ├── clock.h             # Logical and steady-clock timestamps
 │   │   ├── memory_pool.h       # Fixed-capacity object pool
