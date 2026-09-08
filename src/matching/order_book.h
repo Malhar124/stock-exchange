@@ -232,6 +232,10 @@ public:
 private:
   void reset_events() noexcept { event_count_ = 0; }
 
+  [[nodiscard]] core::SequenceNumber next_sequence() noexcept {
+    return next_sequence_number_++;
+  }
+
   [[nodiscard]] std::span<const Event> events() const {
     return std::span<const Event>(event_storage_.get(), event_count_);
   }
@@ -907,6 +911,7 @@ private:
   std::unique_ptr<Event[]> event_storage_;
   std::size_t event_count_{0};
 
+  core::SequenceNumber next_sequence_number_{1};
   core::MatchId next_match_id_{1};
   core::Price last_trade_price_{0};
 };

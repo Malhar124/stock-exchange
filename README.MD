@@ -9,9 +9,9 @@ The matching engine is implemented as a header-only library under `src/`, with
 CMake targets available for the exchange process and two tool entry points.
 
 > **Current status:** The matching engine and supporting data structures are the
-> main implementation surface. The three executable entry points currently print
-> `Hello World`; they are buildable integration placeholders rather than complete
-> terminals or live exchange processes.
+> main implementation surface. The `exchange` executable runs a deterministic
+> matching demonstration; the two tool entry points remain integration
+> placeholders rather than complete terminals or live exchange processes.
 
 ## Highlights
 
@@ -203,7 +203,9 @@ The targets can be run after building:
 ./build/tools/liquidity_bot
 ```
 
-At the current project stage, each prints:
+The `exchange` executable runs a deterministic AAPL scenario that prints
+accepted, rested, trade, partial-fill, filled, and canceled events. The two tool
+executables currently print:
 
 ```text
 Hello World
