@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <iomanip>
 #include <iostream>
 #include <string_view>
 
@@ -8,10 +10,23 @@
 namespace {
 
 using exchange::core::OrderType;
+using exchange::core::Price;
 using exchange::core::Side;
 using exchange::matching::Event;
 using exchange::matching::EventType;
 using exchange::matching::ReasonCode;
+
+void print_price(Price price) {
+	const bool negative = price < 0;
+	const std::uint64_t magnitude =
+		price < 0 ? static_cast<std::uint64_t>(-(price + 1)) + 1U
+						  : static_cast<std::uint64_t>(price);
+	const std::uint64_t whole = magnitude / exchange::core::PRICE_SCALE;
+	const std::uint64_t fractional = magnitude % exchange::core::PRICE_SCALE;
+
+	std::cout << (negative ? "-" : "") << whole << '.' << std::setfill('0')
+					<< std::setw(4) << fractional << std::setfill(' ');
+}
 
 [[nodiscard]] std::string_view side_name(Side side) noexcept {
 	return side == Side::BUY ? "BUY" : "SELL";
@@ -77,7 +92,9 @@ void print_event(const Event &event) {
 		const auto &value = event.payload.order_accepted;
 		std::cout << "  ACCEPTED order=" << value.order_id
 							<< " side=" << side_name(value.side)
-							<< " price=" << value.price << " qty=" << value.qty
+							<< " price=";
+		print_price(value.price);
+		std::cout << " qty=" << value.qty
 							<< " type=" << order_type_name(value.order_type) << '\n';
 		break;
 	}
@@ -85,7 +102,9 @@ void print_event(const Event &event) {
 		const auto &value = event.payload.order_rested;
 		std::cout << "  RESTED order=" << value.order_id
 							<< " side=" << side_name(value.side)
-							<< " price=" << value.price << " qty=" << value.qty << '\n';
+							<< " price=";
+		print_price(value.price);
+		std::cout << " qty=" << value.qty << '\n';
 		break;
 	}
 	case EventType::ORDER_REJECTED: {
@@ -105,14 +124,17 @@ void print_event(const Event &event) {
 		std::cout << "  PARTIALLY_FILLED order=" << value.order_id
 							<< " filled=" << value.filled_qty
 							<< " remaining=" << value.remaining_qty
-							<< " price=" << value.price << '\n';
+							<< " price=";
+		print_price(value.price);
+		std::cout << '\n';
 		break;
 	}
 	case EventType::ORDER_FILLED: {
 		const auto &value = event.payload.order_filled;
 		std::cout << "  FILLED order=" << value.order_id
-							<< " qty=" << value.filled_qty << " price=" << value.price
-							<< '\n';
+							<< " qty=" << value.filled_qty << " price=";
+		print_price(value.price);
+		std::cout << '\n';
 		break;
 	}
 	case EventType::ORDER_CANCELED: {
@@ -126,7 +148,9 @@ void print_event(const Event &event) {
 		std::cout << "  TRADE match=" << value.match_id
 							<< " buy_order=" << value.buy_order_id
 							<< " sell_order=" << value.sell_order_id
-							<< " price=" << value.price << " qty=" << value.qty << '\n';
+							<< " price=";
+		print_price(value.price);
+		std::cout << " qty=" << value.qty << '\n';
 		break;
 	}
 	}

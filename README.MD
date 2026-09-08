@@ -210,9 +210,11 @@ The `exchange` executable runs a deterministic AAPL scenario:
 3. Adds buy order `2002` at `1'010'000` for quantity `60`, matching order `1001`.
 4. Cancels the remaining quantity of order `2001`.
 
-Prices are fixed-point values, so `1'010'000` represents `101.0000` with
-`PRICE_SCALE = 10'000`. The crossing request emits a trade at the resting ask
-price, a partial fill for order `1001`, and a complete fill for order `2002`.
+Prices are stored as fixed-point values, so `1'010'000` represents `101.0000`
+with `PRICE_SCALE = 10'000`. The engine keeps the scaled integer for execution,
+while the demonstration displays it as `101.0000`. The crossing request emits a
+trade at the resting ask price, a partial fill for order `1001`, and a complete
+fill for order `2002`.
 
 
 
@@ -220,13 +222,13 @@ The exchange demonstration produces output in this shape:
 
 ```text
 1. Add resting ask (2 events)
-	ACCEPTED order=1001 side=SELL price=1010000 qty=100 type=LIMIT
-	RESTED order=1001 side=SELL price=1010000 qty=100
+	ACCEPTED order=1001 side=SELL price=101.0000 qty=100 type=LIMIT
+	RESTED order=1001 side=SELL price=101.0000 qty=100
 3. Add crossing bid (4 events)
-	ACCEPTED order=2002 side=BUY price=1010000 qty=60 type=LIMIT
-	TRADE match=1 buy_order=2002 sell_order=1001 price=1010000 qty=60
-	PARTIALLY_FILLED order=1001 filled=60 remaining=40 price=1010000
-	FILLED order=2002 qty=60 price=1010000
+	ACCEPTED order=2002 side=BUY price=101.0000 qty=60 type=LIMIT
+	TRADE match=1 buy_order=2002 sell_order=1001 price=101.0000 qty=60
+	PARTIALLY_FILLED order=1001 filled=60 remaining=40 price=101.0000
+	FILLED order=2002 qty=60 price=101.0000
 4. Cancel remaining bid (1 events)
 	CANCELED order=2001 qty=40
 ```
