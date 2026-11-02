@@ -1,0 +1,79 @@
+ADD MOD 1 BUY LIMIT 10 100 participant=1
+  ACCEPTED order=1 side=BUY price=100.0000 qty=10 type=LIMIT
+  RESTED order=1 side=BUY price=100.0000 qty=10
+ADD MOD 2 BUY LIMIT 10 100 participant=2
+  ACCEPTED order=2 side=BUY price=100.0000 qty=10 type=LIMIT
+  RESTED order=2 side=BUY price=100.0000 qty=10
+
+# Reducing quantity at the same price keeps the order's place in the queue.
+MODIFY MOD 1 4 100
+  REDUCED order=1 new_qty=4
+ADD MOD 3 SELL LIMIT 4 100 participant=3
+  ACCEPTED order=3 side=SELL price=100.0000 qty=4 type=LIMIT
+  TRADE match=1 buy_order=1 sell_order=3 price=100.0000 qty=4
+  FILLED order=1 qty=4 price=100.0000
+  FILLED order=3 qty=4 price=100.0000
+
+# Raising quantity re-enters the book at the back of the level.
+ADD MOD 4 BUY LIMIT 10 100 participant=4
+  ACCEPTED order=4 side=BUY price=100.0000 qty=10 type=LIMIT
+  RESTED order=4 side=BUY price=100.0000 qty=10
+MODIFY MOD 2 12 100
+  CANCELED order=2 qty=10
+  ACCEPTED order=2 side=BUY price=100.0000 qty=12 type=LIMIT
+  RESTED order=2 side=BUY price=100.0000 qty=12
+ADD MOD 5 SELL LIMIT 10 100 participant=5
+  ACCEPTED order=5 side=SELL price=100.0000 qty=10 type=LIMIT
+  TRADE match=2 buy_order=4 sell_order=5 price=100.0000 qty=10
+  FILLED order=4 qty=10 price=100.0000
+  FILLED order=5 qty=10 price=100.0000
+
+# A price change that crosses trades immediately.
+ADD MOD 6 SELL LIMIT 5 101 participant=6
+  ACCEPTED order=6 side=SELL price=101.0000 qty=5 type=LIMIT
+  RESTED order=6 side=SELL price=101.0000 qty=5
+MODIFY MOD 2 12 101
+  CANCELED order=2 qty=12
+  ACCEPTED order=2 side=BUY price=101.0000 qty=12 type=LIMIT
+  TRADE match=3 buy_order=2 sell_order=6 price=101.0000 qty=5
+  FILLED order=6 qty=5 price=101.0000
+  PARTIALLY_FILLED order=2 filled=5 remaining=7 price=101.0000
+  RESTED order=2 side=BUY price=101.0000 qty=7
+
+# Cancel, then requests against orders that are no longer active.
+CANCEL MOD 2
+  CANCELED order=2 qty=7
+CANCEL MOD 2
+  REJECTED order=2 reason=ORDER_NOT_ACTIVE
+MODIFY MOD 1 5 100
+  REJECTED order=1 reason=ORDER_NOT_ACTIVE
+
+# Stop orders cannot be modified.
+ADD MOD 7 SELL STOP 5 trigger=90
+  ACCEPTED order=7 side=SELL price=90.0000 qty=5 type=STOP
+MODIFY MOD 7 5 90
+  REJECTED order=7 reason=INVALID_MODIFICATION
+
+# A post-only order cannot be modified to a price that would trade.
+ADD MPO 1 SELL LIMIT 10 100 participant=1
+  ACCEPTED order=1 side=SELL price=100.0000 qty=10 type=LIMIT
+  RESTED order=1 side=SELL price=100.0000 qty=10
+ADD MPO 2 BUY POST_ONLY 10 99 participant=2
+  ACCEPTED order=2 side=BUY price=99.0000 qty=10 type=POST_ONLY
+  RESTED order=2 side=BUY price=99.0000 qty=10
+MODIFY MPO 2 10 101
+  REJECTED order=2 reason=POST_ONLY_WOULD_CROSS
+MODIFY MPO 2 10 99.5
+  CANCELED order=2 qty=10
+  ACCEPTED order=2 side=BUY price=99.5000 qty=10 type=POST_ONLY
+  RESTED order=2 side=BUY price=99.5000 qty=10
+
+# Every reduction is acknowledged, also one that only shrinks the hidden part
+# of an iceberg. A modify that changes nothing is refused.
+ADD MIC 1 SELL ICEBERG 100 100 display=10 participant=1
+  ACCEPTED order=1 side=SELL price=100.0000 qty=100 type=ICEBERG
+  RESTED order=1 side=SELL price=100.0000 qty=10
+MODIFY MIC 1 50 100
+  REDUCED order=1 new_qty=10
+MODIFY MIC 1 50 100
+  REJECTED order=1 reason=INVALID_MODIFICATION

@@ -1,0 +1,26 @@
+# Requests the engine rejects before touching the book.
+ADD VAL 1 BUY LIMIT 0 10
+  REJECTED order=1 reason=ZERO_QUANTITY
+ADD VAL 2 BUY LIMIT 5 0
+  REJECTED order=2 reason=NEGATIVE_PRICE
+ADD VAL 3 BUY LIMIT 5 -1
+  REJECTED order=3 reason=NEGATIVE_PRICE
+ADD VAL 4 BUY STOP 5
+  REJECTED order=4 reason=NEGATIVE_PRICE
+ADD VAL 5 BUY LIMIT 5 10
+  ACCEPTED order=5 side=BUY price=10.0000 qty=5 type=LIMIT
+  RESTED order=5 side=BUY price=10.0000 qty=5
+ADD VAL 5 BUY LIMIT 5 10
+  REJECTED order=5 reason=DUPLICATE_ORDER_ID
+CANCEL VAL 99
+  REJECTED order=99 reason=ORDER_NOT_FOUND
+MODIFY VAL 99 5 10
+  REJECTED order=99 reason=ORDER_NOT_FOUND
+MODIFY VAL 5 0 10
+  REJECTED order=5 reason=ZERO_QUANTITY
+MODIFY VAL 5 5 -1
+  REJECTED order=5 reason=NEGATIVE_PRICE
+
+# Modifying to the same quantity and price changes nothing, so it is refused.
+MODIFY VAL 5 5 10
+  REJECTED order=5 reason=INVALID_MODIFICATION

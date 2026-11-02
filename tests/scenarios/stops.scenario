@@ -1,0 +1,85 @@
+# Resting liquidity.
+ADD STP 1 SELL LIMIT 10 101 participant=1
+  ACCEPTED order=1 side=SELL price=101.0000 qty=10 type=LIMIT
+  RESTED order=1 side=SELL price=101.0000 qty=10
+ADD STP 2 SELL LIMIT 10 102 participant=1
+  ACCEPTED order=2 side=SELL price=102.0000 qty=10 type=LIMIT
+  RESTED order=2 side=SELL price=102.0000 qty=10
+ADD STP 3 BUY LIMIT 10 99 participant=1
+  ACCEPTED order=3 side=BUY price=99.0000 qty=10 type=LIMIT
+  RESTED order=3 side=BUY price=99.0000 qty=10
+
+# Buy stops wait until the last trade price reaches their trigger.
+ADD STP 4 BUY STOP 5 trigger=101 participant=2
+  ACCEPTED order=4 side=BUY price=101.0000 qty=5 type=STOP
+ADD STP 5 BUY STOP_LIMIT 5 101 trigger=101 participant=2
+  ACCEPTED order=5 side=BUY price=101.0000 qty=5 type=STOP_LIMIT
+
+# A trade at 101 triggers both: 4 becomes a market buy, 5 a limit buy at 101.
+# The triggering order finishes (FILLED order=6) before any stop activates.
+ADD STP 6 BUY LIMIT 2 101 participant=3
+  ACCEPTED order=6 side=BUY price=101.0000 qty=2 type=LIMIT
+  TRADE match=1 buy_order=6 sell_order=1 price=101.0000 qty=2
+  PARTIALLY_FILLED order=1 filled=2 remaining=8 price=101.0000
+  FILLED order=6 qty=2 price=101.0000
+  TRADE match=2 buy_order=4 sell_order=1 price=101.0000 qty=5
+  PARTIALLY_FILLED order=1 filled=5 remaining=3 price=101.0000
+  FILLED order=4 qty=5 price=101.0000
+  TRADE match=3 buy_order=5 sell_order=1 price=101.0000 qty=3
+  FILLED order=1 qty=3 price=101.0000
+  PARTIALLY_FILLED order=5 filled=3 remaining=2 price=101.0000
+  RESTED order=5 side=BUY price=101.0000 qty=2
+
+# Stops can trigger further stops.
+ADD CAS 1 BUY LIMIT 5 100 participant=1
+  ACCEPTED order=1 side=BUY price=100.0000 qty=5 type=LIMIT
+  RESTED order=1 side=BUY price=100.0000 qty=5
+ADD CAS 2 BUY LIMIT 5 95 participant=1
+  ACCEPTED order=2 side=BUY price=95.0000 qty=5 type=LIMIT
+  RESTED order=2 side=BUY price=95.0000 qty=5
+ADD CAS 3 BUY LIMIT 5 90 participant=1
+  ACCEPTED order=3 side=BUY price=90.0000 qty=5 type=LIMIT
+  RESTED order=3 side=BUY price=90.0000 qty=5
+ADD CAS 4 SELL STOP 5 trigger=100 participant=2
+  ACCEPTED order=4 side=SELL price=100.0000 qty=5 type=STOP
+ADD CAS 5 SELL STOP 5 trigger=95 participant=3
+  ACCEPTED order=5 side=SELL price=95.0000 qty=5 type=STOP
+ADD CAS 6 SELL LIMIT 1 100 participant=4
+  ACCEPTED order=6 side=SELL price=100.0000 qty=1 type=LIMIT
+  TRADE match=1 buy_order=1 sell_order=6 price=100.0000 qty=1
+  PARTIALLY_FILLED order=1 filled=1 remaining=4 price=100.0000
+  FILLED order=6 qty=1 price=100.0000
+  TRADE match=2 buy_order=1 sell_order=4 price=100.0000 qty=4
+  FILLED order=1 qty=4 price=100.0000
+  TRADE match=3 buy_order=2 sell_order=4 price=95.0000 qty=1
+  PARTIALLY_FILLED order=2 filled=1 remaining=4 price=95.0000
+  FILLED order=4 qty=5 price=95.0000
+  TRADE match=4 buy_order=2 sell_order=5 price=95.0000 qty=4
+  FILLED order=2 qty=4 price=95.0000
+  TRADE match=5 buy_order=3 sell_order=5 price=90.0000 qty=1
+  PARTIALLY_FILLED order=3 filled=1 remaining=4 price=90.0000
+  FILLED order=5 qty=5 price=90.0000
+
+# When one trade triggers several stops, the stop whose trigger the price
+# crossed first activates first: here the higher sell stop, entered later.
+ADD SOR 1 BUY LIMIT 11 95 participant=1
+  ACCEPTED order=1 side=BUY price=95.0000 qty=11 type=LIMIT
+  RESTED order=1 side=BUY price=95.0000 qty=11
+ADD SOR 2 BUY LIMIT 10 90 participant=1
+  ACCEPTED order=2 side=BUY price=90.0000 qty=10 type=LIMIT
+  RESTED order=2 side=BUY price=90.0000 qty=10
+ADD SOR 3 SELL STOP 10 trigger=96 participant=2
+  ACCEPTED order=3 side=SELL price=96.0000 qty=10 type=STOP
+ADD SOR 4 SELL STOP 10 trigger=104 participant=3
+  ACCEPTED order=4 side=SELL price=104.0000 qty=10 type=STOP
+ADD SOR 5 SELL LIMIT 1 95 participant=4
+  ACCEPTED order=5 side=SELL price=95.0000 qty=1 type=LIMIT
+  TRADE match=1 buy_order=1 sell_order=5 price=95.0000 qty=1
+  PARTIALLY_FILLED order=1 filled=1 remaining=10 price=95.0000
+  FILLED order=5 qty=1 price=95.0000
+  TRADE match=2 buy_order=1 sell_order=4 price=95.0000 qty=10
+  FILLED order=1 qty=10 price=95.0000
+  FILLED order=4 qty=10 price=95.0000
+  TRADE match=3 buy_order=2 sell_order=3 price=90.0000 qty=10
+  FILLED order=2 qty=10 price=90.0000
+  FILLED order=3 qty=10 price=90.0000

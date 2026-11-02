@@ -1,0 +1,43 @@
+# Expected events here were written by hand. Before the fixes, the engine
+# produced different (wrong) events for both commands below.
+
+# A triggered stop must trade after the triggering order's remainder has
+# rested. Buy 4 fills 5 at 100 and rests 3 at 100; the sell stop then sells
+# at 100 to that remainder, not at 90 to order 2.
+ADD SEQ 1 SELL LIMIT 5 100 participant=1
+  ACCEPTED order=1 side=SELL price=100.0000 qty=5 type=LIMIT
+  RESTED order=1 side=SELL price=100.0000 qty=5
+ADD SEQ 2 BUY LIMIT 5 90 participant=1
+  ACCEPTED order=2 side=BUY price=90.0000 qty=5 type=LIMIT
+  RESTED order=2 side=BUY price=90.0000 qty=5
+ADD SEQ 3 SELL STOP 1 trigger=100 participant=4
+  ACCEPTED order=3 side=SELL price=100.0000 qty=1 type=STOP
+ADD SEQ 4 BUY LIMIT 8 100 participant=2
+  ACCEPTED order=4 side=BUY price=100.0000 qty=8 type=LIMIT
+  TRADE match=1 buy_order=4 sell_order=1 price=100.0000 qty=5
+  FILLED order=1 qty=5 price=100.0000
+  PARTIALLY_FILLED order=4 filled=5 remaining=3 price=100.0000
+  RESTED order=4 side=BUY price=100.0000 qty=3
+  TRADE match=2 buy_order=4 sell_order=3 price=100.0000 qty=1
+  PARTIALLY_FILLED order=4 filled=1 remaining=2 price=100.0000
+  FILLED order=3 qty=1 price=100.0000
+
+# A stop whose trigger was already reached activates immediately instead of
+# waiting for the next trade. The last trade was 105, so a buy stop at 100
+# buys at once from the 106 offer.
+ADD NOW 1 SELL LIMIT 1 105 participant=1
+  ACCEPTED order=1 side=SELL price=105.0000 qty=1 type=LIMIT
+  RESTED order=1 side=SELL price=105.0000 qty=1
+ADD NOW 2 BUY LIMIT 1 105 participant=2
+  ACCEPTED order=2 side=BUY price=105.0000 qty=1 type=LIMIT
+  TRADE match=1 buy_order=2 sell_order=1 price=105.0000 qty=1
+  FILLED order=1 qty=1 price=105.0000
+  FILLED order=2 qty=1 price=105.0000
+ADD NOW 3 SELL LIMIT 5 106 participant=1
+  ACCEPTED order=3 side=SELL price=106.0000 qty=5 type=LIMIT
+  RESTED order=3 side=SELL price=106.0000 qty=5
+ADD NOW 4 BUY STOP 1 trigger=100 participant=3
+  ACCEPTED order=4 side=BUY price=100.0000 qty=1 type=STOP
+  TRADE match=2 buy_order=4 sell_order=3 price=106.0000 qty=1
+  PARTIALLY_FILLED order=3 filled=1 remaining=4 price=106.0000
+  FILLED order=4 qty=1 price=106.0000

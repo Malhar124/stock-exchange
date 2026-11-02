@@ -46,6 +46,13 @@ public:
     return true;
   }
 
+  // Approximate when called while the other thread is active; for metrics.
+  [[nodiscard]] std::size_t size_approx() const noexcept {
+    const std::uint64_t tail = tail_.value.load(std::memory_order_acquire);
+    const std::uint64_t head = head_.value.load(std::memory_order_acquire);
+    return tail >= head ? static_cast<std::size_t>(tail - head) : 0U;
+  }
+
   [[nodiscard]] bool empty() const noexcept {
     return head_.value.load(std::memory_order_acquire) ==
            tail_.value.load(std::memory_order_acquire);

@@ -1,2 +1,5 @@
 .cache/
 build/
+data/
+.DS_Store
+*.secrets

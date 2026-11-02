@@ -1,0 +1,14 @@
+# The AAPL walkthrough from src/exchange_main.cpp.
+ADD AAPL 1001 SELL LIMIT 100 101 participant=2
+  ACCEPTED order=1001 side=SELL price=101.0000 qty=100 type=LIMIT
+  RESTED order=1001 side=SELL price=101.0000 qty=100
+ADD AAPL 2001 BUY LIMIT 40 100 participant=1
+  ACCEPTED order=2001 side=BUY price=100.0000 qty=40 type=LIMIT
+  RESTED order=2001 side=BUY price=100.0000 qty=40
+ADD AAPL 2002 BUY LIMIT 60 101 participant=3
+  ACCEPTED order=2002 side=BUY price=101.0000 qty=60 type=LIMIT
+  TRADE match=1 buy_order=2002 sell_order=1001 price=101.0000 qty=60
+  PARTIALLY_FILLED order=1001 filled=60 remaining=40 price=101.0000
+  FILLED order=2002 qty=60 price=101.0000
+CANCEL AAPL 2001
+  CANCELED order=2001 qty=40

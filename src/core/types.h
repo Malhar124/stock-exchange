@@ -41,12 +41,13 @@ enum class OrderType : std::uint8_t {
   POST_ONLY,
 };
 
-enum class OrderStatus : std::uint8_t {
-  NEW,
-  ACCEPTED,
-  PARTIALLY_FILLED,
-  FILLED,
-  CANCELED,
+// What happens when an order would trade against a resting order from the
+// same participant. The incoming (aggressor) order's setting decides.
+enum class SelfTradePrevention : std::uint8_t {
+  NONE,             // trade normally
+  CANCEL_RESTING,   // cancel the resting order and keep matching
+  CANCEL_AGGRESSOR, // cancel the rest of the incoming order
+  CANCEL_BOTH,      // cancel both
 };
 
 using Symbol = std::array<char, 8>;
@@ -85,7 +86,7 @@ static_assert(std::is_trivially_copyable_v<ParticipantId>);
 static_assert(std::is_trivially_copyable_v<MatchId>);
 static_assert(std::is_trivially_copyable_v<Side>);
 static_assert(std::is_trivially_copyable_v<OrderType>);
-static_assert(std::is_trivially_copyable_v<OrderStatus>);
+static_assert(std::is_trivially_copyable_v<SelfTradePrevention>);
 static_assert(std::is_trivially_copyable_v<Symbol>);
 
 } // namespace exchange::core

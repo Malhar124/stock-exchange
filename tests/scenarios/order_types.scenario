@@ -1,0 +1,107 @@
+# MARKET: rejected on an empty book, otherwise sweeps and cancels the rest.
+ADD ABC 1 BUY MARKET 10
+  REJECTED order=1 reason=BOOK_EMPTY
+ADD ABC 2 SELL LIMIT 5 50
+  ACCEPTED order=2 side=SELL price=50.0000 qty=5 type=LIMIT
+  RESTED order=2 side=SELL price=50.0000 qty=5
+ADD ABC 3 SELL LIMIT 5 51
+  ACCEPTED order=3 side=SELL price=51.0000 qty=5 type=LIMIT
+  RESTED order=3 side=SELL price=51.0000 qty=5
+ADD ABC 4 BUY MARKET 12
+  ACCEPTED order=4 side=BUY price=0.0000 qty=12 type=MARKET
+  TRADE match=1 buy_order=4 sell_order=2 price=50.0000 qty=5
+  FILLED order=2 qty=5 price=50.0000
+  TRADE match=2 buy_order=4 sell_order=3 price=51.0000 qty=5
+  FILLED order=3 qty=5 price=51.0000
+  PARTIALLY_FILLED order=4 filled=10 remaining=2 price=51.0000
+  CANCELED order=4 qty=2
+
+# IOC: fills what it can at its limit and cancels the remainder.
+ADD ABC 5 SELL LIMIT 5 60
+  ACCEPTED order=5 side=SELL price=60.0000 qty=5 type=LIMIT
+  RESTED order=5 side=SELL price=60.0000 qty=5
+ADD ABC 6 SELL LIMIT 5 61
+  ACCEPTED order=6 side=SELL price=61.0000 qty=5 type=LIMIT
+  RESTED order=6 side=SELL price=61.0000 qty=5
+ADD ABC 7 BUY IOC 8 60
+  ACCEPTED order=7 side=BUY price=60.0000 qty=8 type=IOC
+  TRADE match=3 buy_order=7 sell_order=5 price=60.0000 qty=5
+  FILLED order=5 qty=5 price=60.0000
+  PARTIALLY_FILLED order=7 filled=5 remaining=3 price=60.0000
+  CANCELED order=7 qty=3
+
+# FOK: all or nothing within the limit price.
+ADD ABC 8 BUY FOK 10 61
+  REJECTED order=8 reason=FOK_INSUFFICIENT_LIQUIDITY
+ADD ABC 9 SELL LIMIT 5 61
+  ACCEPTED order=9 side=SELL price=61.0000 qty=5 type=LIMIT
+  RESTED order=9 side=SELL price=61.0000 qty=5
+ADD ABC 10 BUY FOK 10 61
+  ACCEPTED order=10 side=BUY price=61.0000 qty=10 type=FOK
+  TRADE match=4 buy_order=10 sell_order=6 price=61.0000 qty=5
+  FILLED order=6 qty=5 price=61.0000
+  TRADE match=5 buy_order=10 sell_order=9 price=61.0000 qty=5
+  FILLED order=9 qty=5 price=61.0000
+  FILLED order=10 qty=10 price=61.0000
+
+# GTC rests like LIMIT.
+ADD ABC 11 BUY GTC 5 40
+  ACCEPTED order=11 side=BUY price=40.0000 qty=5 type=GTC
+  RESTED order=11 side=BUY price=40.0000 qty=5
+
+# POST_ONLY: rejected if it would trade, otherwise rests.
+ADD ABC 12 SELL POST_ONLY 5 40
+  REJECTED order=12 reason=POST_ONLY_WOULD_CROSS
+ADD ABC 13 SELL POST_ONLY 5 45
+  ACCEPTED order=13 side=SELL price=45.0000 qty=5 type=POST_ONLY
+  RESTED order=13 side=SELL price=45.0000 qty=5
+
+# ICEBERG: display must be 1..qty; only the display slice is visible, and a
+# refilled slice goes to the back of its price level.
+ADD ICE 1 SELL ICEBERG 10 70 display=0
+  REJECTED order=1 reason=INVALID_ICEBERG_DISPLAY
+ADD ICE 2 SELL ICEBERG 10 70 display=11
+  REJECTED order=2 reason=INVALID_ICEBERG_DISPLAY
+ADD ICE 3 SELL ICEBERG 25 70 display=10
+  ACCEPTED order=3 side=SELL price=70.0000 qty=25 type=ICEBERG
+  RESTED order=3 side=SELL price=70.0000 qty=10
+ADD ICE 4 SELL LIMIT 5 70
+  ACCEPTED order=4 side=SELL price=70.0000 qty=5 type=LIMIT
+  RESTED order=4 side=SELL price=70.0000 qty=5
+ADD ICE 5 BUY LIMIT 12 70
+  ACCEPTED order=5 side=BUY price=70.0000 qty=12 type=LIMIT
+  TRADE match=1 buy_order=5 sell_order=3 price=70.0000 qty=10
+  PARTIALLY_FILLED order=3 filled=10 remaining=15 price=70.0000
+  RESTED order=3 side=SELL price=70.0000 qty=10
+  TRADE match=2 buy_order=5 sell_order=4 price=70.0000 qty=2
+  PARTIALLY_FILLED order=4 filled=2 remaining=3 price=70.0000
+  FILLED order=5 qty=12 price=70.0000
+ADD ICE 6 BUY LIMIT 30 70
+  ACCEPTED order=6 side=BUY price=70.0000 qty=30 type=LIMIT
+  TRADE match=3 buy_order=6 sell_order=4 price=70.0000 qty=3
+  FILLED order=4 qty=3 price=70.0000
+  TRADE match=4 buy_order=6 sell_order=3 price=70.0000 qty=10
+  PARTIALLY_FILLED order=3 filled=10 remaining=5 price=70.0000
+  RESTED order=3 side=SELL price=70.0000 qty=5
+  TRADE match=5 buy_order=6 sell_order=3 price=70.0000 qty=5
+  FILLED order=3 qty=5 price=70.0000
+  PARTIALLY_FILLED order=6 filled=18 remaining=12 price=70.0000
+  RESTED order=6 side=BUY price=70.0000 qty=12
+
+# An FOK counts the hidden part of an iceberg: it fills, slice by slice.
+ADD FKI 1 SELL ICEBERG 30 100 display=10 participant=1
+  ACCEPTED order=1 side=SELL price=100.0000 qty=30 type=ICEBERG
+  RESTED order=1 side=SELL price=100.0000 qty=10
+ADD FKI 2 BUY FOK 25 100 participant=2
+  ACCEPTED order=2 side=BUY price=100.0000 qty=25 type=FOK
+  TRADE match=1 buy_order=2 sell_order=1 price=100.0000 qty=10
+  PARTIALLY_FILLED order=1 filled=10 remaining=20 price=100.0000
+  RESTED order=1 side=SELL price=100.0000 qty=10
+  TRADE match=2 buy_order=2 sell_order=1 price=100.0000 qty=10
+  PARTIALLY_FILLED order=1 filled=10 remaining=10 price=100.0000
+  RESTED order=1 side=SELL price=100.0000 qty=10
+  TRADE match=3 buy_order=2 sell_order=1 price=100.0000 qty=5
+  PARTIALLY_FILLED order=1 filled=5 remaining=5 price=100.0000
+  FILLED order=2 qty=25 price=100.0000
+ADD FKI 3 BUY FOK 6 100 participant=2
+  REJECTED order=3 reason=FOK_INSUFFICIENT_LIQUIDITY

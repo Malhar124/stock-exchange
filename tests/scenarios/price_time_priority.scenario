@@ -1,0 +1,51 @@
+# Better prices match first; orders at one price match in arrival order.
+ADD XYZ 1 SELL LIMIT 10 101 participant=1
+  ACCEPTED order=1 side=SELL price=101.0000 qty=10 type=LIMIT
+  RESTED order=1 side=SELL price=101.0000 qty=10
+ADD XYZ 2 SELL LIMIT 10 100 participant=2
+  ACCEPTED order=2 side=SELL price=100.0000 qty=10 type=LIMIT
+  RESTED order=2 side=SELL price=100.0000 qty=10
+ADD XYZ 3 SELL LIMIT 10 100 participant=3
+  ACCEPTED order=3 side=SELL price=100.0000 qty=10 type=LIMIT
+  RESTED order=3 side=SELL price=100.0000 qty=10
+ADD XYZ 4 SELL LIMIT 10 102 participant=4
+  ACCEPTED order=4 side=SELL price=102.0000 qty=10 type=LIMIT
+  RESTED order=4 side=SELL price=102.0000 qty=10
+
+# Takes 2 then 3 at 100, then 1 at 101, and stops at its 101 limit.
+# The remaining 5 rests as the best bid.
+ADD XYZ 5 BUY LIMIT 35 101 participant=9
+  ACCEPTED order=5 side=BUY price=101.0000 qty=35 type=LIMIT
+  TRADE match=1 buy_order=5 sell_order=2 price=100.0000 qty=10
+  FILLED order=2 qty=10 price=100.0000
+  TRADE match=2 buy_order=5 sell_order=3 price=100.0000 qty=10
+  FILLED order=3 qty=10 price=100.0000
+  TRADE match=3 buy_order=5 sell_order=1 price=101.0000 qty=10
+  FILLED order=1 qty=10 price=101.0000
+  PARTIALLY_FILLED order=5 filled=30 remaining=5 price=101.0000
+  RESTED order=5 side=BUY price=101.0000 qty=5
+
+# Same on the bid side: 5 is ahead of 7 at 101, and 101 beats 99.
+ADD XYZ 6 BUY LIMIT 10 99 participant=1
+  ACCEPTED order=6 side=BUY price=99.0000 qty=10 type=LIMIT
+  RESTED order=6 side=BUY price=99.0000 qty=10
+ADD XYZ 7 BUY LIMIT 10 101 participant=2
+  ACCEPTED order=7 side=BUY price=101.0000 qty=10 type=LIMIT
+  RESTED order=7 side=BUY price=101.0000 qty=10
+ADD XYZ 8 SELL LIMIT 12 99 participant=3
+  ACCEPTED order=8 side=SELL price=99.0000 qty=12 type=LIMIT
+  TRADE match=4 buy_order=5 sell_order=8 price=101.0000 qty=5
+  FILLED order=5 qty=5 price=101.0000
+  TRADE match=5 buy_order=7 sell_order=8 price=101.0000 qty=7
+  PARTIALLY_FILLED order=7 filled=7 remaining=3 price=101.0000
+  FILLED order=8 qty=12 price=101.0000
+
+# A market order sweeps 7 then 6, and cancels what it cannot fill.
+ADD XYZ 9 SELL MARKET 20 participant=3
+  ACCEPTED order=9 side=SELL price=0.0000 qty=20 type=MARKET
+  TRADE match=6 buy_order=7 sell_order=9 price=101.0000 qty=3
+  FILLED order=7 qty=3 price=101.0000
+  TRADE match=7 buy_order=6 sell_order=9 price=99.0000 qty=10
+  FILLED order=6 qty=10 price=99.0000
+  PARTIALLY_FILLED order=9 filled=13 remaining=7 price=99.0000
+  CANCELED order=9 qty=7

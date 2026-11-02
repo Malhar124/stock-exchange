@@ -6,26 +6,11 @@
 
 namespace exchange::core {
 
-class LogicalClock {
-public:
-  [[nodiscard]] Timestamp next() noexcept { return ++current_; }
-
-  [[nodiscard]] Timestamp current() const noexcept { return current_; }
-
-  void reset() noexcept { current_ = 0; }
-
-private:
-  Timestamp current_{0};
-};
-
-[[nodiscard]] inline Timestamp steady_timestamp_now() noexcept {
+// Steady-clock nanoseconds, for latency measurements.
+[[nodiscard]] inline Timestamp now_ns() noexcept {
   const auto now = std::chrono::steady_clock::now().time_since_epoch();
   return static_cast<Timestamp>(
       std::chrono::duration_cast<std::chrono::nanoseconds>(now).count());
-}
-
-[[nodiscard]] inline Timestamp now_ns() noexcept {
-  return steady_timestamp_now();
 }
 
 } // namespace exchange::core

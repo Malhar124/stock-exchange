@@ -12,7 +12,6 @@ using core::OrderId;
 using core::OrderType;
 using core::Price;
 using core::Quantity;
-using core::SequenceNumber;
 using core::Side;
 using core::Symbol;
 using core::Timestamp;
@@ -30,6 +29,9 @@ enum class ReasonCode : std::uint16_t {
   INVALID_MODIFICATION,
   INVALID_ICEBERG_DISPLAY,
   ORDER_POOL_EXHAUSTED,
+  LEVEL_CAPACITY_EXHAUSTED,
+  STOP_CAPACITY_EXHAUSTED,
+  SELF_TRADE_PREVENTED,
 };
 
 enum class EventType : std::uint8_t {
@@ -44,7 +46,6 @@ enum class EventType : std::uint8_t {
 };
 
 struct OrderAccepted {
-  SequenceNumber sequence_number;
   Timestamp timestamp;
   OrderId order_id;
   Symbol symbol;
@@ -55,7 +56,6 @@ struct OrderAccepted {
 };
 
 struct OrderRested {
-  SequenceNumber sequence_number;
   Timestamp timestamp;
   OrderId order_id;
   Symbol symbol;
@@ -65,21 +65,18 @@ struct OrderRested {
 };
 
 struct OrderRejected {
-  SequenceNumber sequence_number;
   Timestamp timestamp;
   OrderId order_id;
   ReasonCode reason_code;
 };
 
 struct OrderReduced {
-  SequenceNumber sequence_number;
   Timestamp timestamp;
   OrderId order_id;
   Quantity new_qty;
 };
 
 struct OrderPartiallyFilled {
-  SequenceNumber sequence_number;
   Timestamp timestamp;
   OrderId order_id;
   Quantity filled_qty;
@@ -88,7 +85,6 @@ struct OrderPartiallyFilled {
 };
 
 struct OrderFilled {
-  SequenceNumber sequence_number;
   Timestamp timestamp;
   OrderId order_id;
   Quantity filled_qty;
@@ -96,14 +92,13 @@ struct OrderFilled {
 };
 
 struct OrderCanceled {
-  SequenceNumber sequence_number;
   Timestamp timestamp;
   OrderId order_id;
   Quantity canceled_qty;
+  ReasonCode reason; // NONE for requested cancels and unfilled IOC/market
 };
 
 struct Trade {
-  SequenceNumber sequence_number;
   Timestamp timestamp;
   MatchId match_id;
   Symbol symbol;

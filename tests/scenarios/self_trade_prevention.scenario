@@ -1,0 +1,133 @@
+# Self-trade prevention is opt-in per order, and the incoming order's mode
+# decides. Without it, a participant can trade with itself.
+ADD SELF 1 SELL LIMIT 5 100 participant=1
+  ACCEPTED order=1 side=SELL price=100.0000 qty=5 type=LIMIT
+  RESTED order=1 side=SELL price=100.0000 qty=5
+ADD SELF 2 BUY LIMIT 5 100 participant=1
+  ACCEPTED order=2 side=BUY price=100.0000 qty=5 type=LIMIT
+  TRADE match=1 buy_order=2 sell_order=1 price=100.0000 qty=5
+  FILLED order=1 qty=5 price=100.0000
+  FILLED order=2 qty=5 price=100.0000
+
+# CANCEL_RESTING: own resting orders are canceled and matching continues.
+ADD RST 1 SELL LIMIT 5 100 participant=1
+  ACCEPTED order=1 side=SELL price=100.0000 qty=5 type=LIMIT
+  RESTED order=1 side=SELL price=100.0000 qty=5
+ADD RST 2 SELL LIMIT 5 100 participant=2
+  ACCEPTED order=2 side=SELL price=100.0000 qty=5 type=LIMIT
+  RESTED order=2 side=SELL price=100.0000 qty=5
+ADD RST 3 SELL LIMIT 5 101 participant=1
+  ACCEPTED order=3 side=SELL price=101.0000 qty=5 type=LIMIT
+  RESTED order=3 side=SELL price=101.0000 qty=5
+ADD RST 4 BUY LIMIT 12 101 participant=1 stp=CANCEL_RESTING
+  ACCEPTED order=4 side=BUY price=101.0000 qty=12 type=LIMIT
+  CANCELED order=1 qty=5 reason=SELF_TRADE_PREVENTED
+  TRADE match=1 buy_order=4 sell_order=2 price=100.0000 qty=5
+  FILLED order=2 qty=5 price=100.0000
+  CANCELED order=3 qty=5 reason=SELF_TRADE_PREVENTED
+  PARTIALLY_FILLED order=4 filled=5 remaining=7 price=100.0000
+  RESTED order=4 side=BUY price=101.0000 qty=7
+
+# CANCEL_AGGRESSOR: the rest of the incoming order is canceled.
+ADD AGG 1 SELL LIMIT 5 100 participant=2
+  ACCEPTED order=1 side=SELL price=100.0000 qty=5 type=LIMIT
+  RESTED order=1 side=SELL price=100.0000 qty=5
+ADD AGG 2 SELL LIMIT 5 100 participant=1
+  ACCEPTED order=2 side=SELL price=100.0000 qty=5 type=LIMIT
+  RESTED order=2 side=SELL price=100.0000 qty=5
+ADD AGG 3 SELL LIMIT 5 100 participant=3
+  ACCEPTED order=3 side=SELL price=100.0000 qty=5 type=LIMIT
+  RESTED order=3 side=SELL price=100.0000 qty=5
+ADD AGG 4 BUY LIMIT 12 100 participant=1 stp=CANCEL_AGGRESSOR
+  ACCEPTED order=4 side=BUY price=100.0000 qty=12 type=LIMIT
+  TRADE match=1 buy_order=4 sell_order=1 price=100.0000 qty=5
+  FILLED order=1 qty=5 price=100.0000
+  PARTIALLY_FILLED order=4 filled=5 remaining=7 price=100.0000
+  CANCELED order=4 qty=7 reason=SELF_TRADE_PREVENTED
+
+# CANCEL_BOTH: both orders are canceled.
+ADD AGG 5 BUY LIMIT 3 100 participant=1 stp=CANCEL_BOTH
+  ACCEPTED order=5 side=BUY price=100.0000 qty=3 type=LIMIT
+  CANCELED order=2 qty=5 reason=SELF_TRADE_PREVENTED
+  CANCELED order=5 qty=3 reason=SELF_TRADE_PREVENTED
+
+# Participant 0 is anonymous, so prevention never applies.
+ADD ANON 1 SELL LIMIT 5 100
+  ACCEPTED order=1 side=SELL price=100.0000 qty=5 type=LIMIT
+  RESTED order=1 side=SELL price=100.0000 qty=5
+ADD ANON 2 BUY LIMIT 5 100 stp=CANCEL_BOTH
+  ACCEPTED order=2 side=BUY price=100.0000 qty=5 type=LIMIT
+  TRADE match=1 buy_order=2 sell_order=1 price=100.0000 qty=5
+  FILLED order=1 qty=5 price=100.0000
+  FILLED order=2 qty=5 price=100.0000
+
+# A canceled iceberg loses its hidden quantity too.
+ADD ICS 1 SELL ICEBERG 20 100 display=5 participant=1
+  ACCEPTED order=1 side=SELL price=100.0000 qty=20 type=ICEBERG
+  RESTED order=1 side=SELL price=100.0000 qty=5
+ADD ICS 2 SELL LIMIT 5 100 participant=2
+  ACCEPTED order=2 side=SELL price=100.0000 qty=5 type=LIMIT
+  RESTED order=2 side=SELL price=100.0000 qty=5
+ADD ICS 3 BUY LIMIT 5 100 participant=1 stp=CANCEL_RESTING
+  ACCEPTED order=3 side=BUY price=100.0000 qty=5 type=LIMIT
+  CANCELED order=1 qty=20 reason=SELF_TRADE_PREVENTED
+  TRADE match=1 buy_order=3 sell_order=2 price=100.0000 qty=5
+  FILLED order=2 qty=5 price=100.0000
+  FILLED order=3 qty=5 price=100.0000
+
+# FOK: own orders are not liquidity. Under CANCEL_AGGRESSOR or CANCEL_BOTH,
+# reaching an own order before the full quantity rejects the FOK.
+ADD FOK 1 SELL LIMIT 5 100 participant=1
+  ACCEPTED order=1 side=SELL price=100.0000 qty=5 type=LIMIT
+  RESTED order=1 side=SELL price=100.0000 qty=5
+ADD FOK 2 SELL LIMIT 5 100 participant=2
+  ACCEPTED order=2 side=SELL price=100.0000 qty=5 type=LIMIT
+  RESTED order=2 side=SELL price=100.0000 qty=5
+ADD FOK 3 BUY FOK 10 100 participant=1 stp=CANCEL_RESTING
+  REJECTED order=3 reason=FOK_INSUFFICIENT_LIQUIDITY
+ADD FOK 4 BUY FOK 5 100 participant=1 stp=CANCEL_AGGRESSOR
+  REJECTED order=4 reason=SELF_TRADE_PREVENTED
+ADD FOK 5 BUY FOK 5 100 participant=1 stp=CANCEL_RESTING
+  ACCEPTED order=5 side=BUY price=100.0000 qty=5 type=FOK
+  CANCELED order=1 qty=5 reason=SELF_TRADE_PREVENTED
+  TRADE match=1 buy_order=5 sell_order=2 price=100.0000 qty=5
+  FILLED order=2 qty=5 price=100.0000
+  FILLED order=5 qty=5 price=100.0000
+
+# An activated stop keeps its mode: it cancels its own 101 offer, buys around
+# it, and cancels the unfillable market remainder as usual.
+ADD STS 1 SELL LIMIT 5 100 participant=2
+  ACCEPTED order=1 side=SELL price=100.0000 qty=5 type=LIMIT
+  RESTED order=1 side=SELL price=100.0000 qty=5
+ADD STS 2 SELL LIMIT 5 101 participant=1
+  ACCEPTED order=2 side=SELL price=101.0000 qty=5 type=LIMIT
+  RESTED order=2 side=SELL price=101.0000 qty=5
+ADD STS 3 SELL LIMIT 5 102 participant=3
+  ACCEPTED order=3 side=SELL price=102.0000 qty=5 type=LIMIT
+  RESTED order=3 side=SELL price=102.0000 qty=5
+ADD STS 4 BUY STOP 10 trigger=100 participant=1 stp=CANCEL_RESTING
+  ACCEPTED order=4 side=BUY price=100.0000 qty=10 type=STOP
+ADD STS 5 BUY LIMIT 1 100 participant=4
+  ACCEPTED order=5 side=BUY price=100.0000 qty=1 type=LIMIT
+  TRADE match=1 buy_order=5 sell_order=1 price=100.0000 qty=1
+  PARTIALLY_FILLED order=1 filled=1 remaining=4 price=100.0000
+  FILLED order=5 qty=1 price=100.0000
+  TRADE match=2 buy_order=4 sell_order=1 price=100.0000 qty=4
+  FILLED order=1 qty=4 price=100.0000
+  CANCELED order=2 qty=5 reason=SELF_TRADE_PREVENTED
+  TRADE match=3 buy_order=4 sell_order=3 price=102.0000 qty=5
+  FILLED order=3 qty=5 price=102.0000
+  PARTIALLY_FILLED order=4 filled=9 remaining=1 price=102.0000
+  CANCELED order=4 qty=1
+
+# A modified order keeps its mode.
+ADD MDS 1 SELL LIMIT 5 101 participant=1
+  ACCEPTED order=1 side=SELL price=101.0000 qty=5 type=LIMIT
+  RESTED order=1 side=SELL price=101.0000 qty=5
+ADD MDS 2 BUY LIMIT 5 99 participant=1 stp=CANCEL_AGGRESSOR
+  ACCEPTED order=2 side=BUY price=99.0000 qty=5 type=LIMIT
+  RESTED order=2 side=BUY price=99.0000 qty=5
+MODIFY MDS 2 5 101
+  CANCELED order=2 qty=5
+  ACCEPTED order=2 side=BUY price=101.0000 qty=5 type=LIMIT
+  CANCELED order=2 qty=5 reason=SELF_TRADE_PREVENTED

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstring>
 #include <memory>
 
 namespace exchange::core {
@@ -36,7 +37,6 @@ public:
 
     FreeNode *node = free_list_head_;
     free_list_head_ = free_list_head_->next;
-    ++allocated_count_;
     return reinterpret_cast<T *>(node);
   }
 
@@ -46,10 +46,13 @@ public:
     }
 
     std::destroy_at(object);
+#ifdef EXCHANGE_POISON_FREED
+    // Debug builds: make any read of a freed object return garbage.
+    std::memset(static_cast<void *>(object), 0xDD, sizeof(T));
+#endif
     auto *node = reinterpret_cast<FreeNode *>(object);
     node->next = free_list_head_;
     free_list_head_ = node;
-    --allocated_count_;
   }
 
 private:
@@ -65,8 +68,6 @@ private:
   std::unique_ptr<Slot[]> slots_;
 
   FreeNode *free_list_head_{nullptr};
-
-  std::size_t allocated_count_{0};
 };
 
 } // namespace exchange::core
