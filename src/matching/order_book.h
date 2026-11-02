@@ -160,7 +160,7 @@ public:
       return events();
     }
 
-    if (new_price < 0) {
+    if (new_price <= 0) {
       emit_rejected(timestamp, order_id, ReasonCode::NEGATIVE_PRICE);
       return events();
     }

@@ -16,7 +16,8 @@ namespace exchange::matching {
 // 3: a post-only modify cannot cross, sell stops activate highest trigger
 // first, every reduction is reported, a no-change modify is rejected.
 // 4: an FOK counts hidden iceberg quantity.
-inline constexpr std::uint32_t ENGINE_BEHAVIOR_VERSION = 4;
+// 5: a modify to price 0 is rejected, as on entry.
+inline constexpr std::uint32_t ENGINE_BEHAVIOR_VERSION = 5;
 
 enum class RequestAction : std::uint8_t {
   ADD,
