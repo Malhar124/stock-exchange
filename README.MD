@@ -258,7 +258,9 @@ receiving a request to the gateway finishing its results, including the journal.
 	a participant can only cancel or modify its own orders.
 - Risk checks run before an order reaches the engine. Rejections carry a
 	gateway reason (`MAX_ORDER_QTY`, `PRICE_BAND`, `PRICE_NOT_ON_TICK`,
-	`ENGINE_BUSY`, ...).
+	`ENGINE_BUSY`, ...). Only stop and stop-limit orders may carry a trigger
+	price (`INVALID_REQUEST` otherwise); the notional limit values a stop
+	order at the higher of its trigger price and the last trade.
 - With a price band, a market order is sent to the engine as an IOC at the
 	band edge, so it cannot sweep the book at any price. A stop order is sent
 	as a stop-limit at the band edge around its trigger price, so once

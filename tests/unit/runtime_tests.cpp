@@ -618,6 +618,35 @@ TEST_CASE(gateway_limits_stop_orders) {
   CHECK(reports[0].order_type == core::OrderType::STOP);
 }
 
+TEST_CASE(gateway_values_orders_by_trigger_price_only_for_stops) {
+  Harness harness(gateway::RiskLimits{.max_notional = 1'000});
+  const auto buyer = harness.login(4);
+  const auto seller = harness.login(5);
+  harness.new_order(seller, 1, core::Side::SELL, 100 * PX, 5);
+  harness.new_order(buyer, 1, core::Side::BUY, 100 * PX, 1); // last trade 100
+  REQUIRE(harness.core().market_data().last_trade_price(
+              core::make_symbol("AAPL")) == 100 * PX);
+  harness.reports(buyer);
+  const auto reason_of = [&](std::uint64_t id, core::OrderType type) {
+    harness.send(buyer, protocol::NewOrder{.client_order_id = id,
+                                           .symbol = core::make_symbol("AAPL"),
+                                           .side = core::Side::BUY,
+                                           .type = type,
+                                           .qty = 18,
+                                           .trigger_price = PX / 100});
+    const auto reports = harness.reports(buyer);
+    return reports.empty() ? std::uint16_t{999} : reports[0].reason;
+  };
+
+  // 18 at 100 is over the limit; a trigger of 0.01 must not hide that.
+  CHECK_EQ(reason_of(2, core::OrderType::MARKET),
+           static_cast<std::uint16_t>(GatewayReason::INVALID_REQUEST));
+  // A buy stop below the last trade triggers at once, so it is valued at
+  // the last trade.
+  CHECK_EQ(reason_of(3, core::OrderType::STOP),
+           static_cast<std::uint16_t>(GatewayReason::MAX_NOTIONAL));
+}
+
 TEST_CASE(config_rejects_a_price_band_over_100_percent) {
   server::ServerConfig config;
   std::string error;

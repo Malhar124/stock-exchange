@@ -371,11 +371,16 @@ private:
     if (!accepting_) {
       return GatewayReason::SHUTTING_DOWN;
     }
+    // The engine ignores a trigger price on other orders, but the notional
+    // check would value the order at it.
+    const bool is_stop = message.type == core::OrderType::STOP ||
+                         message.type == core::OrderType::STOP_LIMIT;
     if (static_cast<std::uint8_t>(message.side) > 1U ||
         static_cast<std::uint8_t>(message.type) >
             static_cast<std::uint8_t>(core::OrderType::POST_ONLY) ||
         static_cast<std::uint8_t>(message.stp) >
-            static_cast<std::uint8_t>(core::SelfTradePrevention::CANCEL_BOTH)) {
+            static_cast<std::uint8_t>(core::SelfTradePrevention::CANCEL_BOTH) ||
+        (!is_stop && message.trigger_price != 0)) {
       return GatewayReason::INVALID_REQUEST;
     }
     if (!symbols_.contains(message.symbol)) {
@@ -411,9 +416,10 @@ private:
     }
     const core::Price last = market_data_.last_trade_price(symbol);
     if (limits_.max_notional > 0U) {
+      // A stop triggers once the last trade reaches its trigger, so it is
+      // worth at least the higher of the two.
       const core::Price reference =
-          limit_price > 0 ? limit_price : (trigger_price > 0 ? trigger_price
-                                                             : last);
+          limit_price > 0 ? limit_price : std::max(trigger_price, last);
       if (reference <= 0) {
         return GatewayReason::MAX_NOTIONAL; // a market order with no reference
       }
