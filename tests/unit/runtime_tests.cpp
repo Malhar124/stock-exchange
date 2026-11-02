@@ -589,6 +589,42 @@ TEST_CASE(gateway_limits_market_orders) {
   CHECK(reports[0].order_type == core::OrderType::MARKET);
 }
 
+TEST_CASE(gateway_limits_stop_orders) {
+  Harness harness(gateway::RiskLimits{.price_band_percent = 10});
+  const auto buyer = harness.login(4);
+  const auto seller = harness.login(5);
+
+  // A bid rests at 91 while trades move the last price up to 110.
+  harness.new_order(buyer, 1, core::Side::BUY, 91 * PX, 1);
+  harness.new_order(seller, 1, core::Side::SELL, 100 * PX, 1);
+  harness.new_order(buyer, 2, core::Side::BUY, 100 * PX, 1);
+  harness.new_order(seller, 2, core::Side::SELL, 110 * PX, 1);
+  harness.new_order(buyer, 3, core::Side::BUY, 110 * PX, 1);
+  harness.reports(seller);
+
+  // A triggered sell stop only sells down to 99, its trigger less 10%, so
+  // it rests there instead of hitting the bid at 91.
+  harness.send(seller, protocol::NewOrder{.client_order_id = 3,
+                                          .symbol = core::make_symbol("AAPL"),
+                                          .side = core::Side::SELL,
+                                          .type = core::OrderType::STOP,
+                                          .qty = 1,
+                                          .trigger_price = 110 * PX});
+  const auto reports = harness.reports(seller);
+  CHECK((kinds(reports) ==
+         std::vector<ExecKind>{ExecKind::ACCEPTED, ExecKind::RESTED}));
+  REQUIRE(reports.size() == 2U);
+  CHECK_EQ(reports[1].price, 99 * PX);
+  CHECK(reports[0].order_type == core::OrderType::STOP);
+}
+
+TEST_CASE(config_rejects_a_price_band_over_100_percent) {
+  server::ServerConfig config;
+  std::string error;
+  CHECK(server::apply_setting(config, "price_band_percent", "100", error));
+  CHECK(!server::apply_setting(config, "price_band_percent", "101", error));
+}
+
 TEST_CASE(engine_stage_delivers_every_event_of_a_huge_request) {
   runtime::EngineStage<runtime::SmallEngine> stage(
       std::vector<core::Symbol>{core::make_symbol("AAPL")}, nullptr, nullptr);

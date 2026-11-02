@@ -119,7 +119,8 @@ template <typename Integer>
   } else if (key == "max_notional") {
     ok = detail::parse_number(value, config.limits.max_notional);
   } else if (key == "price_band_percent") {
-    ok = detail::parse_number(value, config.limits.price_band_percent);
+    ok = detail::parse_number(value, config.limits.price_band_percent) &&
+         config.limits.price_band_percent <= 100U;
   } else if (key == "max_open_orders_per_participant") {
     ok = detail::parse_number(value, config.limits.max_open_orders);
   } else if (key == "cancel_on_disconnect") {

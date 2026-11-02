@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
@@ -27,7 +28,7 @@ using Secrets = std::unordered_map<core::ParticipantId, protocol::Secret>;
 struct RiskLimits {
   core::Quantity max_order_qty{1'000'000};
   std::uint64_t max_notional{0};       // currency units; 0 disables the check
-  std::uint32_t price_band_percent{0}; // vs last trade; 0 disables the check
+  std::uint32_t price_band_percent{0}; // vs last trade; 0 disables, max 100
   std::uint32_t max_open_orders{10'000}; // per participant
   bool cancel_on_disconnect{false};
   core::Price tick_size{1}; // prices must be a multiple; 1 allows any price
@@ -273,12 +274,14 @@ private:
                                      .kind = protocol::ExecKind::REJECTED,
                                      .side = message.side,
                                      .order_type = message.type};
-    const protocol::NewOrder order = with_market_protection(message);
-    const auto reason = validate_new_order(session, order);
+    const protocol::NewOrder checked = with_market_protection(message);
+    const auto reason = validate_new_order(session, checked);
     if (reason != protocol::GatewayReason::NONE) {
       send_gateway_reject(session, reject, reason);
       return;
     }
+    // After validation, so a stop is not refused for a limit the band set.
+    const protocol::NewOrder order = with_stop_protection(checked);
 
     const core::OrderId order_id = next_exchange_order_id_++;
     const matching::InboundOrder inbound{
@@ -322,17 +325,40 @@ private:
         limits_.price_band_percent == 0U || last <= 0) {
       return order;
     }
-    const auto band = static_cast<core::Price>(
-        static_cast<double>(last) *
-        static_cast<double>(limits_.price_band_percent) / 100.0);
-    const core::Price tick = limits_.tick_size;
     order.type = core::OrderType::IOC;
-    if (order.side == core::Side::BUY) {
-      order.price = (last + band) / tick * tick;
-    } else {
-      order.price = std::max(tick, (last - band + tick - 1) / tick * tick);
-    }
+    order.price = band_edge(order.side, last);
     return order;
+  }
+
+  // With a price band, a stop order becomes a stop-limit at the band edge
+  // around its trigger, so once triggered it cannot sweep the book at any
+  // price either; an unfilled rest stays at that limit. Reports still show
+  // it as a stop order.
+  [[nodiscard]] protocol::NewOrder
+  with_stop_protection(protocol::NewOrder order) const {
+    if (order.type != core::OrderType::STOP ||
+        limits_.price_band_percent == 0U || order.trigger_price <= 0) {
+      return order;
+    }
+    order.type = core::OrderType::STOP_LIMIT;
+    order.price = band_edge(order.side, order.trigger_price);
+    return order;
+  }
+
+  // The furthest price on the tick within the band around `reference`.
+  // Integer math with the band at most 100%, so a client's trigger price
+  // cannot overflow it.
+  [[nodiscard]] core::Price band_edge(core::Side side,
+                                      core::Price reference) const {
+    const auto percent = static_cast<core::Price>(limits_.price_band_percent);
+    const core::Price band =
+        (reference / 100 * percent) + (reference % 100 * percent / 100);
+    const core::Price tick = limits_.tick_size;
+    if (side == core::Side::BUY) {
+      constexpr core::Price MAX = std::numeric_limits<core::Price>::max();
+      return (band > MAX - reference ? MAX : reference + band) / tick * tick;
+    }
+    return std::max(tick, (reference - band + tick - 1) / tick * tick);
   }
 
   [[nodiscard]] protocol::GatewayReason

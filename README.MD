@@ -260,9 +260,11 @@ receiving a request to the gateway finishing its results, including the journal.
 	gateway reason (`MAX_ORDER_QTY`, `PRICE_BAND`, `PRICE_NOT_ON_TICK`,
 	`ENGINE_BUSY`, ...).
 - With a price band, a market order is sent to the engine as an IOC at the
-	band edge, so it cannot sweep the book at any price. With a notional
-	limit, a market order before the symbol's first trade is rejected: there
-	is no price to value it at.
+	band edge, so it cannot sweep the book at any price. A stop order is sent
+	as a stop-limit at the band edge around its trigger price, so once
+	triggered it also trades only within the band; an unfilled rest stays at
+	that limit. With a notional limit, a market order before the symbol's
+	first trade is rejected: there is no price to value it at.
 - While the server shuts down, new orders, modifies, and cancels are refused
 	with `SHUTTING_DOWN`.
 - Execution reports go to the order's owner, including fills on resting orders.
