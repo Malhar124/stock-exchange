@@ -432,6 +432,8 @@ private:
     if (limits_.max_notional > 0U) {
       // A stop triggers once the last trade reaches its trigger, so it is
       // worth at least the higher of the two.
+      // shortcut: a banded buy stop can still fill up to the band above
+      // this, value it at its band edge if the limit must be exact.
       const core::Price reference =
           limit_price > 0 ? limit_price : std::max(trigger_price, last);
       if (reference <= 0) {
