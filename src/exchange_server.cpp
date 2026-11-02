@@ -197,6 +197,7 @@ int run_server(const server::ServerConfig &config, gateway::Secrets secrets) {
       return 1;
     }
   }
+  core.finish_recovery();
 
   int wake_pipe[2];
   if (::pipe(wake_pipe) != 0) {

@@ -173,6 +173,20 @@ public:
         std::max(next_exchange_order_id_, order.order_id + 1U);
   }
 
+  // Call once after recovery, before clients connect. No one is connected
+  // then, so with cancel-on-disconnect every recovered order is canceled, as
+  // if its session had just closed.
+  void finish_recovery() {
+    if (!limits_.cancel_on_disconnect) {
+      return;
+    }
+    for (const auto &[order_id, info] : orders_) {
+      if (info.live && !submit_cancel(order_id, info)) {
+        pending_cancels_.push_back(order_id);
+      }
+    }
+  }
+
   // While shutting down, new requests are refused.
   void set_accepting(bool accepting) noexcept { accepting_ = accepting; }
 

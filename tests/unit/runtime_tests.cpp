@@ -125,6 +125,19 @@ public:
     run_engine();
   }
 
+  // Recovery through this harness's own engine, as the server does it.
+  void replay(const runtime::JournalRecord &record) {
+    core_.restore_submission(record);
+    stage_.replay(record, [&](const runtime::EngineOutput &output) {
+      core_.on_engine_output(output);
+    });
+  }
+
+  void finish_recovery() {
+    core_.finish_recovery();
+    run_engine();
+  }
+
   bool busy{false};
 
 private:
@@ -755,5 +768,39 @@ TEST_CASE(recovery_rebuilds_the_same_gateway_state) {
   const auto accepted = recovered.reports(a);
   REQUIRE(!accepted.empty());
   CHECK_EQ(accepted[0].exchange_order_id, 6U); // five ADDs so far
+  std::filesystem::remove(path);
+}
+
+TEST_CASE(recovery_cancels_open_orders_under_cancel_on_disconnect) {
+  const std::string path = temp_path("cancel_on_restart.journal");
+  const gateway::RiskLimits limits{.cancel_on_disconnect = true};
+  std::string error;
+  {
+    runtime::JournalWriter writer;
+    REQUIRE(writer.open(path, runtime::CapacityProfile::SMALL,
+                        runtime::JournalSync::NONE, nullptr, error));
+    Harness live(limits, &writer);
+    const auto a = live.login(1);
+    live.new_order(a, 10, core::Side::SELL, 101 * PX, 10);
+    live.new_order(a, 11, core::Side::BUY, 99 * PX, 10);
+    CHECK_EQ(live.core().open_orders(), 2U);
+  } // the server stops while participant 1's orders are open
+
+  Harness recovered(limits);
+  runtime::JournalReadResult result;
+  REQUIRE(runtime::read_journal(
+      path, result, error,
+      [&](const runtime::JournalRecord &record) { recovered.replay(record); }));
+  CHECK_EQ(recovered.core().open_orders(), 2U);
+
+  // No one is connected after a restart, so the orders are canceled.
+  recovered.finish_recovery();
+  CHECK_EQ(recovered.core().open_orders(), 0U);
+
+  // The engine's book is empty too: a buy at 101 rests instead of trading.
+  const auto b = recovered.login(2);
+  recovered.new_order(b, 1, core::Side::BUY, 101 * PX, 1);
+  CHECK((kinds(recovered.reports(b)) ==
+         std::vector<ExecKind>{ExecKind::ACCEPTED, ExecKind::RESTED}));
   std::filesystem::remove(path);
 }

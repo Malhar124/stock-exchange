@@ -273,8 +273,9 @@ receiving a request to the gateway finishing its results, including the journal.
 	Market data (trades and level updates) goes to subscribers; subscribing sends
 	a snapshot first.
 - Order state survives disconnects; `orders` after reconnecting lists what is
-	still open. `cancel_on_disconnect = true` cancels instead; cancels the
-	full engine queue refuses are sent again until it takes them.
+	still open. `cancel_on_disconnect = true` cancels instead, including every
+	order recovered after a restart, since no one is connected then; cancels
+	the full engine queue refuses are sent again until it takes them.
 - TCP keepalive drops a connection whose peer vanished (about 25 seconds),
 	so the participant can log in again.
 
